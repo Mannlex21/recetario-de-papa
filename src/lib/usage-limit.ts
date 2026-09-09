@@ -4,61 +4,87 @@ export async function checkAndIncrementUsage(
 	identifier: string,
 	userId?: string,
 ) {
-	const today = new Date();
-	today.setHours(0, 0, 0, 0);
+	// Normalizar la fecha actual en formato ISO corto (YYYY-MM-DD)
+	const todayStr = new Date().toISOString().split("T")[0];
+	const todayDate = new Date(todayStr);
 
-	// 1. Consultar el límite desde AppConfig (o usar 5 si no se encuentra registrado)
+	// 1. Obtener límite global de AppConfig (por defecto 5)
 	const config = await prisma.appConfig.findUnique({
 		where: { key: "daily_recipe_limit" },
 	});
 	const dailyLimit = config?.value ?? 5;
 
-	// 2. Buscar uso del usuario / IP
+	// 2. Buscar si ya existe el registro de uso
 	const record = await prisma.userUsage.findUnique({
 		where: { identifier },
 	});
 
-	// Registro nuevo
+	// Caso 1: Registro completamente nuevo
 	if (!record) {
-		await prisma.userUsage.create({
+		const newRecord = await prisma.userUsage.create({
 			data: {
 				identifier,
 				userId: userId ?? null,
 				dailyCount: 1,
-				lastRequestDate: new Date(),
+				lastRequestDate: todayDate,
 			},
 		});
 
-		return { allowed: true, remaining: dailyLimit - 1, limit: dailyLimit };
+		return {
+			allowed: true,
+			remaining: dailyLimit - 1,
+			limit: dailyLimit,
+			currentCount: newRecord.dailyCount,
+		};
 	}
 
-	const lastDate = new Date(record.lastRequestDate);
-	lastDate.setHours(0, 0, 0, 0);
+	const lastDateStr = new Date(record.lastRequestDate)
+		.toISOString()
+		.split("T")[0];
 
-	// Reinicio de contador por nuevo día
-	let currentCount = record.dailyCount;
-	if (lastDate < today) {
-		currentCount = 0;
+	// Caso 2: Es un nuevo día -> Reiniciar conteo a 1
+	if (lastDateStr < todayStr) {
+		const updated = await prisma.userUsage.update({
+			where: { identifier },
+			data: {
+				dailyCount: 1,
+				lastRequestDate: todayDate,
+				userId: userId ?? record.userId,
+			},
+		});
+
+		return {
+			allowed: true,
+			remaining: dailyLimit - 1,
+			limit: dailyLimit,
+			currentCount: updated.dailyCount,
+		};
 	}
 
-	// Límite alcanzado
-	if (currentCount >= dailyLimit) {
-		return { allowed: false, remaining: 0, limit: dailyLimit };
+	// Caso 3: Mismo día y ya alcanzó o superó el límite
+	if (record.dailyCount >= dailyLimit) {
+		return {
+			allowed: false,
+			remaining: 0,
+			limit: dailyLimit,
+			currentCount: record.dailyCount,
+		};
 	}
 
-	// Incrementar contador
-	await prisma.userUsage.update({
+	// Caso 4: Mismo día y dentro del límite -> Incrementar 1 atómicamente
+	const updated = await prisma.userUsage.update({
 		where: { identifier },
 		data: {
-			dailyCount: currentCount + 1,
-			lastRequestDate: new Date(),
+			dailyCount: { increment: 1 },
+			lastRequestDate: todayDate,
 			userId: userId ?? record.userId,
 		},
 	});
 
 	return {
 		allowed: true,
-		remaining: dailyLimit - (currentCount + 1),
+		remaining: dailyLimit - updated.dailyCount,
 		limit: dailyLimit,
+		currentCount: updated.dailyCount,
 	};
 }
