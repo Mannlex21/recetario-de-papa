@@ -1,6 +1,7 @@
 import { prisma } from "../src/lib/prisma";
 
 async function main() {
+	await prisma.userUsage.deleteMany();
 	await prisma.itemMenuSemanal.deleteMany();
 	await prisma.menuSemanal.deleteMany();
 	await prisma.ingredienteReceta.deleteMany();
@@ -15,6 +16,30 @@ async function main() {
 			id: userId,
 			email: "mannlex@gmail.com",
 			nombre: "Manuel Alejandro",
+		},
+	});
+
+	// Crear o reiniciar el uso inicial del usuario para la prueba de límites
+	await prisma.userUsage.upsert({
+		where: { identifier: user.id },
+		update: {
+			dailyCount: 0,
+			lastRequestDate: new Date(),
+		},
+		create: {
+			identifier: user.id,
+			userId: user.id,
+			dailyCount: 0,
+			lastRequestDate: new Date(),
+		},
+	});
+
+	await prisma.appConfig.upsert({
+		where: { key: "daily_recipe_limit" },
+		update: {},
+		create: {
+			key: "daily_recipe_limit",
+			value: 5,
 		},
 	});
 
@@ -442,7 +467,7 @@ async function main() {
 	}
 
 	console.log(
-		`Base de datos poblada con éxito. Se crearon ${recetasData.length} recetas para tu usuario.`,
+		`Base de datos poblada con éxito. Se crearon ${recetasData.length} recetas y el registro inicial de UserUsage para tu usuario.`,
 	);
 }
 

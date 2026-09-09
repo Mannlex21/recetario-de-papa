@@ -11,12 +11,13 @@ export default function ChefIAPage() {
 		null,
 	);
 	const [errorModalOpen, setErrorModalOpen] = useState(false);
-
+	const [mensajeError, setMensajeError] = useState("");
+	const [limiteAlcanzado, setLimiteAlcanzado] = useState(false);
 	const recetaRef = useRef<HTMLDivElement>(null);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		if (!ingredientesInput.trim() || loading) return;
+		if (!ingredientesInput.trim() || loading || limiteAlcanzado) return;
 
 		setLoading(true);
 		setRecetaGenerada(null);
@@ -28,14 +29,25 @@ export default function ChefIAPage() {
 				body: JSON.stringify({ prompt: ingredientesInput }),
 			});
 
+			const data = await res.json().catch(() => null);
+
 			if (!res.ok) {
-				throw new Error("Error al obtener respuesta de la API");
+				const msg =
+					data?.error || "No pudimos conectar con el Chef IA.";
+				setMensajeError(msg);
+
+				// Si el status es 429 (Too Many Requests), activamos la alerta fija
+				if (res.status === 429) {
+					setLimiteAlcanzado(true);
+				}
+				setErrorModalOpen(true);
+				return;
 			}
 
-			const data = await res.json();
 			setRecetaGenerada(data);
-		} catch (err) {
-			console.error("Error al generar la receta:", err);
+		} catch (err: unknown) {
+			console.error("Error de red/servidor:", err);
+			setMensajeError("Ocurrió un error inesperado de conexión.");
 			setErrorModalOpen(true);
 		} finally {
 			setLoading(false);
@@ -72,6 +84,27 @@ export default function ChefIAPage() {
 					onSubmit={handleSubmit}
 					className="bg-white border border-stone-200/80 p-6 shadow-sm space-y-4 rounded-sm"
 				>
+					{/* Mensaje visual de Límite Alcanzado */}
+					{limiteAlcanzado && (
+						<div className="p-3 bg-amber-50/80 border border-amber-200/80 rounded-sm flex items-start gap-2.5 text-amber-900 animate-in fade-in duration-200">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								viewBox="0 0 20 20"
+								fill="currentColor"
+								className="w-4 h-4 shrink-0 mt-0.5 text-amber-800"
+							>
+								<path
+									fillRule="evenodd"
+									d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z"
+									clipRule="evenodd"
+								/>
+							</svg>
+							<p className="text-xs font-serif italic leading-relaxed">
+								{mensajeError ||
+									"Has alcanzado tu límite diario de generaciones. Vuelve mañana para crear más recetas."}
+							</p>
+						</div>
+					)}
 					<label
 						htmlFor="ingredientes"
 						className="block font-serif text-xs uppercase tracking-wider text-stone-700 font-semibold"
@@ -111,12 +144,18 @@ export default function ChefIAPage() {
 					<div className="pt-2 flex items-center justify-end">
 						<button
 							type="submit"
-							disabled={!ingredientesInput.trim() || loading}
-							className="px-6 py-2.5 bg-stone-900 hover:bg-stone-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-serif italic text-xs tracking-wide transition-colors cursor-pointer shadow-sm"
+							disabled={
+								!ingredientesInput.trim() ||
+								loading ||
+								limiteAlcanzado
+							}
+							className="px-6 py-2.5 bg-stone-900 hover:bg-stone-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-serif italic text-xs tracking-wide transition-colors shadow-sm"
 						>
 							{loading
 								? "El Chef está pensando..."
-								: "Crear Receta Ahora"}
+								: limiteAlcanzado
+									? "Límite Diario Alcanzado"
+									: "Crear Receta Ahora"}
 						</button>
 					</div>
 				</form>
@@ -264,15 +303,13 @@ export default function ChefIAPage() {
 									</svg>
 								</div>
 								<h3 className="font-serif text-lg text-stone-900">
-									Ocurrió un problema
+									Aviso
 								</h3>
 							</div>
 
 							<p className="text-xs sm:text-sm text-stone-600 leading-relaxed font-sans">
-								No pudimos conectar con el Chef IA en este
-								momento. Por favor, intenta enviar tu petición
-								nuevamente. Si el problema persiste, intenta más
-								tarde.
+								{mensajeError ||
+									"No pudimos conectar con el Chef IA en este momento. Por favor, intenta enviar tu petición nuevamente."}
 							</p>
 
 							<div className="flex justify-end gap-2 pt-2 border-t border-stone-100">

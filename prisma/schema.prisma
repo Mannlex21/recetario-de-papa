@@ -6,7 +6,26 @@ datasource db {
     provider = "postgresql"
 }
 
-// Modelo de Usuario (Para la zona privada y roles)
+// Configuración general del sistema (Límites dinámicos, flags, etc.)
+model AppConfig {
+    key   String @id
+    value Int
+
+    @@map("app_config")
+}
+
+// Rastrear el uso diario por IP, usuario o sesión
+model UserUsage {
+    id              String   @id @default(cuid())
+    identifier      String   @unique // Puede ser IP o User ID
+    userId          String?  @map("user_id")
+    user            User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+    dailyCount      Int      @default(0) @map("daily_count")
+    lastRequestDate DateTime @default(now()) @map("last_request_date") @db.Date
+
+    @@map("user_usage")
+}
+
 model User {
     id        String   @id @default(cuid())
     email     String   @unique
@@ -17,9 +36,11 @@ model User {
     recetas     Receta[]
     menusSemana MenuSemanal[]
     favoritos   Favorito[]
+    usage       UserUsage[]
+
+    @@map("User")
 }
 
-// Modelo principal de Receta (SEO y Catálogo público)
 model Receta {
     id                   String   @id @default(cuid())
     titulo               String
@@ -41,22 +62,20 @@ model Receta {
     etiquetas    Etiqueta[]          @relation("RecetaEtiquetas")
 }
 
-// Modelo de Ingrediente (Relación N a N entre Recetas e Ingredientes)
 model IngredienteReceta {
     id       String @id @default(cuid())
     recetaId String
     receta   Receta @relation(fields: [recetaId], references: [id], onDelete: Cascade)
 
-    nombre   String // ej. "Jitomate", "Aceite de oliva"
-    cantidad String // ej. "2 piezas", "1/2 cucharada"
+    nombre   String
+    cantidad String
 }
 
-// Modelo para el Generador de Menús Semanales (Zona Privada)
 model MenuSemanal {
     id        String   @id @default(cuid())
     userId    String
     user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-    semana    String // ej. "2026-W37"
+    semana    String
     createdAt DateTime @default(now())
 
     items ItemMenuSemanal[]
@@ -70,11 +89,10 @@ model ItemMenuSemanal {
     recetaId String
     receta   Receta @relation(fields: [recetaId], references: [id], onDelete: Cascade)
 
-    diaSemana  String // "Lunes", "Martes", etc.
-    tipoComida String // "Desayuno", "Comida", "Cena"
+    diaSemana  String
+    tipoComida String
 }
 
-// Modelo de Favoritos (Relación N a N entre User y Receta)
 model Favorito {
     id     String @id @default(cuid())
     userId String
