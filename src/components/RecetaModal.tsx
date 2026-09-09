@@ -1,32 +1,55 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { createReceta, updateReceta } from "@/app/actions/recetas";
 import { RecetaConIngredientes, IngredienteInput } from "@/types/receta";
 import EditorInstrucciones from "@/components/EditorInstrucciones";
 
-interface Props {
-	readonly receta?: RecetaConIngredientes; // Si se pasa, funciona como Edición; si no, como Creación
+export interface RecetaIAData {
+	titulo?: string;
+	descripcion?: string;
+	categoria?: string;
+	tiempoPreparacionInt?: number;
+	porciones?: number;
+	etiquetas?: string[];
+	ingredientes?: IngredienteInput[];
+	instrucciones?: string;
 }
 
-export default function RecetaModal({ receta }: Props) {
+interface Props {
+	readonly receta?: RecetaConIngredientes; // Modo edición tradicional
+	readonly initialData?: RecetaIAData; // Datos precargados desde Chef IA
+	readonly triggerButton?: React.ReactNode; // Botón personalizado opcional
+}
+
+export default function RecetaModal({
+	receta,
+	initialData,
+	triggerButton,
+}: Props) {
 	const isEditing = Boolean(receta);
 	const [isOpen, setIsOpen] = useState(false);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
+	// Inicializadores directos (sin useEffect)
 	const [instrucciones, setInstrucciones] = useState(
-		receta?.instrucciones || "",
+		() => receta?.instrucciones || initialData?.instrucciones || "",
 	);
-	const [ingredientes, setIngredientes] = useState<IngredienteInput[]>(
-		receta?.ingredientes && receta.ingredientes.length > 0
-			? receta.ingredientes.map((i) => ({
-					nombre: i.nombre,
-					cantidad: i.cantidad,
-				}))
-			: [{ nombre: "", cantidad: "" }],
-	);
+
+	const [ingredientes, setIngredientes] = useState<IngredienteInput[]>(() => {
+		if (receta?.ingredientes && receta.ingredientes.length > 0) {
+			return receta.ingredientes.map((i) => ({
+				nombre: i.nombre,
+				cantidad: i.cantidad,
+			}));
+		}
+		if (initialData?.ingredientes && initialData.ingredientes.length > 0) {
+			return initialData.ingredientes;
+		}
+		return [{ nombre: "", cantidad: "" }];
+	});
 
 	const handleAddIngrediente = () => {
 		setIngredientes((prev) => [...prev, { nombre: "", cantidad: "" }]);
@@ -76,8 +99,15 @@ export default function RecetaModal({ receta }: Props) {
 
 	return (
 		<>
-			{/* Botón dinámico según el modo */}
-			{isEditing ? (
+			{/* Selector de Botón Disparador */}
+			{triggerButton ? (
+				<div
+					onClick={() => setIsOpen(true)}
+					className="inline-block cursor-pointer"
+				>
+					{triggerButton}
+				</div>
+			) : isEditing ? (
 				<button
 					type="button"
 					onClick={() => setIsOpen(true)}
@@ -112,14 +142,12 @@ export default function RecetaModal({ receta }: Props) {
 				typeof window !== "undefined" &&
 				createPortal(
 					<div className="fixed inset-0 z-[9999] bg-stone-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-						{/* Contenedor Principal del Modal: Flex vertical y altura máxima fija */}
 						<div className="bg-[#faf8f5] border border-stone-200 w-full max-w-2xl shadow-2xl max-h-[85vh] flex flex-col text-stone-800 overflow-hidden">
-							{/* Cabecera (Fija arriba) con Icono X */}
 							<div className="flex justify-between items-center px-6 sm:px-8 py-4 border-b border-stone-200 bg-[#faf8f5] shrink-0">
 								<h2 className="font-serif text-2xl text-stone-900">
 									{isEditing
 										? "Editar Receta"
-										: "Agregar Nueva Receta"}
+										: "Revisar y Guardar Receta"}
 								</h2>
 								<button
 									type="button"
@@ -137,28 +165,16 @@ export default function RecetaModal({ receta }: Props) {
 										strokeLinejoin="round"
 										className="w-5 h-5"
 									>
-										<line
-											x1="18"
-											y1="6"
-											x2="6"
-											y2="18"
-										></line>
-										<line
-											x1="6"
-											y1="6"
-											x2="18"
-											y2="18"
-										></line>
+										<line x1="18" y1="6" x2="6" y2="18" />
+										<line x1="6" y1="6" x2="18" y2="18" />
 									</svg>
 								</button>
 							</div>
 
-							{/* Formulario envuelve el contenido scrolleable y el footer */}
 							<form
 								onSubmit={handleSubmit}
 								className="flex flex-col flex-1 overflow-hidden"
 							>
-								{/* Cuerpo con Scroll Interno */}
 								<div className="flex-1 overflow-y-auto px-6 sm:px-8 py-6 space-y-4 text-xs font-sans">
 									{error && (
 										<p className="text-xs text-red-600 font-mono">
@@ -174,7 +190,11 @@ export default function RecetaModal({ receta }: Props) {
 										<input
 											type="text"
 											name="titulo"
-											defaultValue={receta?.titulo || ""}
+											defaultValue={
+												receta?.titulo ||
+												initialData?.titulo ||
+												""
+											}
 											required
 											placeholder="ej. Pasta Pesto Casera"
 											className="w-full bg-white border border-stone-200 p-2.5 text-xs focus:outline-none focus:border-amber-800 font-serif"
@@ -191,6 +211,7 @@ export default function RecetaModal({ receta }: Props) {
 												name="categoria"
 												defaultValue={
 													receta?.categoria ||
+													initialData?.categoria ||
 													"Desayuno"
 												}
 												className="w-full bg-white border border-stone-200 p-2.5 text-xs focus:outline-none focus:border-amber-800"
@@ -219,6 +240,7 @@ export default function RecetaModal({ receta }: Props) {
 												name="tiempoPreparacionInt"
 												defaultValue={
 													receta?.tiempoPreparacionInt ||
+													initialData?.tiempoPreparacionInt ||
 													30
 												}
 												required
@@ -235,7 +257,9 @@ export default function RecetaModal({ receta }: Props) {
 												type="number"
 												name="porciones"
 												defaultValue={
-													receta?.porciones || 2
+													receta?.porciones ||
+													initialData?.porciones ||
+													2
 												}
 												required
 												min={1}
@@ -255,7 +279,11 @@ export default function RecetaModal({ receta }: Props) {
 											defaultValue={
 												receta?.etiquetas
 													?.map((t) => t.nombre)
-													.join(", ") || ""
+													.join(", ") ||
+												initialData?.etiquetas?.join(
+													", ",
+												) ||
+												""
 											}
 											placeholder="ej. Sin Gluten, Keto, Express"
 											className="w-full bg-white border border-stone-200 p-2.5 text-xs focus:outline-none focus:border-amber-800 font-sans"
@@ -270,7 +298,9 @@ export default function RecetaModal({ receta }: Props) {
 										<textarea
 											name="descripcion"
 											defaultValue={
-												receta?.descripcion || ""
+												receta?.descripcion ||
+												initialData?.descripcion ||
+												""
 											}
 											rows={2}
 											required
@@ -354,7 +384,7 @@ export default function RecetaModal({ receta }: Props) {
 									</div>
 								</div>
 
-								{/* Botones de Acción (Fijos abajo / Footer) */}
+								{/* Footer */}
 								<div className="flex justify-end gap-3 px-6 sm:px-8 py-4 border-t border-stone-200 bg-[#faf8f5] shrink-0">
 									<button
 										type="button"
@@ -373,7 +403,7 @@ export default function RecetaModal({ receta }: Props) {
 											? "Guardando..."
 											: isEditing
 												? "Guardar Cambios"
-												: "Guardar Receta"}
+												: "Guardar en Recetario"}
 									</button>
 								</div>
 							</form>

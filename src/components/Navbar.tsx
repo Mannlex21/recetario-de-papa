@@ -161,6 +161,17 @@ export default function Navbar() {
 						{!loading && user ? (
 							<>
 								<Link
+									href="/generar"
+									className={`font-serif italic text-xs transition-colors flex items-center gap-1 ${
+										pathname === "/generar"
+											? "text-amber-800 font-semibold underline underline-offset-4"
+											: "text-amber-900/80 hover:text-amber-800 font-medium"
+									}`}
+								>
+									<span>✨</span> Chef IA
+								</Link>
+
+								<Link
 									href="/favoritos"
 									className={`font-serif italic text-xs transition-colors ${
 										pathname === "/favoritos"
@@ -241,6 +252,18 @@ export default function Navbar() {
 					>
 						{!loading && user ? (
 							<div className="flex flex-col space-y-4">
+								<Link
+									href="/generar"
+									onClick={() => setMenuOpen(false)}
+									className={`font-serif italic text-sm transition-colors flex items-center gap-1.5 ${
+										pathname === "/generar"
+											? "text-amber-800 font-semibold underline underline-offset-4"
+											: "text-amber-900/90 hover:text-amber-800 font-medium"
+									}`}
+								>
+									<span>✨</span> Chef IA
+								</Link>
+
 								<Link
 									href="/favoritos"
 									onClick={() => setMenuOpen(false)}
