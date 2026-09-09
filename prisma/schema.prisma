@@ -1,0 +1,95 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+}
+
+// Modelo de Usuario (Para la zona privada y roles)
+model User {
+    id        String   @id @default(cuid())
+    email     String   @unique
+    nombre    String?
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    recetas     Receta[]
+    menusSemana MenuSemanal[]
+    favoritos   Favorito[]
+}
+
+// Modelo principal de Receta (SEO y Catálogo público)
+model Receta {
+    id                   String   @id @default(cuid())
+    titulo               String
+    slug                 String   @unique
+    descripcion          String
+    instrucciones        String
+    tiempoPreparacionInt Int
+    porciones            Int      @default(1)
+    imagenUrl            String?
+    categoria            String
+    createdAt            DateTime @default(now())
+    updatedAt            DateTime @updatedAt
+
+    userId       String
+    user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+    ingredientes IngredienteReceta[]
+    itemMenu     ItemMenuSemanal[]
+    favoritos    Favorito[]
+    etiquetas    Etiqueta[]          @relation("RecetaEtiquetas")
+}
+
+// Modelo de Ingrediente (Relación N a N entre Recetas e Ingredientes)
+model IngredienteReceta {
+    id       String @id @default(cuid())
+    recetaId String
+    receta   Receta @relation(fields: [recetaId], references: [id], onDelete: Cascade)
+
+    nombre   String // ej. "Jitomate", "Aceite de oliva"
+    cantidad String // ej. "2 piezas", "1/2 cucharada"
+}
+
+// Modelo para el Generador de Menús Semanales (Zona Privada)
+model MenuSemanal {
+    id        String   @id @default(cuid())
+    userId    String
+    user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    semana    String // ej. "2026-W37"
+    createdAt DateTime @default(now())
+
+    items ItemMenuSemanal[]
+}
+
+model ItemMenuSemanal {
+    id            String      @id @default(cuid())
+    menuSemanalId String
+    menuSemanal   MenuSemanal @relation(fields: [menuSemanalId], references: [id], onDelete: Cascade)
+
+    recetaId String
+    receta   Receta @relation(fields: [recetaId], references: [id], onDelete: Cascade)
+
+    diaSemana  String // "Lunes", "Martes", etc.
+    tipoComida String // "Desayuno", "Comida", "Cena"
+}
+
+// Modelo de Favoritos (Relación N a N entre User y Receta)
+model Favorito {
+    id     String @id @default(cuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    recetaId String
+    receta   Receta @relation(fields: [recetaId], references: [id], onDelete: Cascade)
+
+    createdAt DateTime @default(now())
+
+    @@unique([userId, recetaId])
+}
+
+model Etiqueta {
+    id      String   @id @default(cuid())
+    nombre  String   @unique
+    recetas Receta[] @relation("RecetaEtiquetas")
+}
