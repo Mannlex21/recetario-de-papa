@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/utils/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import RecetaModal from "./RecetaModal";
@@ -14,10 +14,13 @@ export default function Navbar() {
 	const [user, setUser] = useState<User | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [menuOpen, setMenuOpen] = useState(false);
+	const [dropdownOpen, setDropdownOpen] = useState(false);
 	const [scrolled, setScrolled] = useState(false);
 
+	const dropdownRef = useRef<HTMLDivElement>(null);
+
+	// Detectar scroll para animación
 	useEffect(() => {
-		// Detectar scroll para activar la animación de contracción
 		const handleScroll = () => {
 			if (window.scrollY > 20) {
 				setScrolled(true);
@@ -30,8 +33,22 @@ export default function Navbar() {
 		return () => window.removeEventListener("scroll", handleScroll);
 	}, []);
 
+	// Cerrar menú al hacer clic fuera
 	useEffect(() => {
-		// Obtener la sesión actual al cargar
+		const handleClickOutside = (event: MouseEvent) => {
+			if (
+				dropdownRef.current &&
+				!dropdownRef.current.contains(event.target as Node)
+			) {
+				setDropdownOpen(false);
+			}
+		};
+		document.addEventListener("mousedown", handleClickOutside);
+		return () =>
+			document.removeEventListener("mousedown", handleClickOutside);
+	}, []);
+
+	useEffect(() => {
 		const checkUser = async () => {
 			const {
 				data: { session },
@@ -42,7 +59,6 @@ export default function Navbar() {
 
 		checkUser();
 
-		// Escuchar cambios de autenticación (login/logout)
 		const {
 			data: { subscription },
 		} = supabase.auth.onAuthStateChange((_event, session) => {
@@ -62,14 +78,19 @@ export default function Navbar() {
 		router.refresh();
 	};
 
-	// Si estamos en la página de login o signup, no mostramos el navbar
 	if (pathname === "/login" || pathname === "/signup") {
 		return null;
 	}
 
+	const opcionesCocina = [
+		{ name: "Mis Recetas", href: "/mis-recetas" },
+		{ name: "Favoritos", href: "/favoritos" },
+		{ name: "Menú Semanal", href: "/menu" },
+		{ name: "Lista de Compras", href: "/lista-compra" },
+	];
+
 	return (
 		<>
-			{/* Importamos la fuente Great Vibes para mantener el estilo caligráfico fluido */}
 			<style jsx global>{`
 				@import url("https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap");
 				.font-fluid-script {
@@ -82,17 +103,16 @@ export default function Navbar() {
 					scrolled ? "py-1.5 shadow-sm" : "py-0"
 				}`}
 			>
-				{/* Contenedor optimizado sin espacios muertos */}
 				<div
 					className={`max-w-6xl mx-auto px-4 sm:px-8 flex items-center justify-between transition-all duration-300 ${
 						scrolled ? "h-14" : "h-18 sm:h-20"
 					}`}
 				>
+					{/* Logo */}
 					<Link
 						href="/"
 						className="group flex items-center text-stone-900 transition-colors py-0"
 					>
-						{/* SVG ajustado exactamente a las nuevas coordenadas y dimensiones exactas */}
 						<svg
 							className={`h-auto text-stone-900 group-hover:text-amber-800 transition-all duration-300 overflow-visible ${
 								scrolled
@@ -103,7 +123,6 @@ export default function Navbar() {
 							fill="none"
 							xmlns="http://www.w3.org/2000/svg"
 						>
-							{/* Nivel superior: El Recetario */}
 							<text
 								x="12"
 								y="44"
@@ -113,7 +132,6 @@ export default function Navbar() {
 							>
 								El Recetario
 							</text>
-							{/* Nivel inferior: de Papá (con x="155" y y="72") */}
 							<text
 								x="155"
 								y="72"
@@ -126,7 +144,7 @@ export default function Navbar() {
 						</svg>
 					</Link>
 
-					{/* BOTÓN MENÚ HAMBURGUESA (MÓVIL) */}
+					{/* Hamburguesa Móvil */}
 					<button
 						onClick={() => setMenuOpen(!menuOpen)}
 						className="md:hidden p-2 text-stone-700 hover:text-amber-900 focus:outline-none cursor-pointer"
@@ -156,10 +174,11 @@ export default function Navbar() {
 						</svg>
 					</button>
 
-					{/* NAVEGACIÓN ESCRITORIO (Oculta en móvil) */}
-					<div className="hidden md:flex items-center gap-6">
+					{/* NAVEGACIÓN ESCRITORIO */}
+					<div className="hidden md:flex items-center gap-5">
 						{!loading && user ? (
 							<>
+								{/* Chef IA */}
 								<Link
 									href="/generar"
 									className={`font-serif italic text-xs transition-colors flex items-center gap-1 ${
@@ -171,51 +190,68 @@ export default function Navbar() {
 									<span>✨</span> Chef IA
 								</Link>
 
-								<Link
-									href="/favoritos"
-									className={`font-serif italic text-xs transition-colors ${
-										pathname === "/favoritos"
-											? "text-stone-900 font-semibold underline underline-offset-4"
-											: "text-stone-600 hover:text-stone-900"
-									}`}
-								>
-									Favoritos
-								</Link>
+								{/* Mi Cocina Dropdown */}
+								<div className="relative" ref={dropdownRef}>
+									<button
+										type="button"
+										onClick={() =>
+											setDropdownOpen(!dropdownOpen)
+										}
+										className={`font-serif italic text-xs flex items-center gap-1 transition-colors cursor-pointer ${
+											opcionesCocina.some(
+												(item) =>
+													item.href === pathname,
+											)
+												? "text-stone-900 font-semibold underline underline-offset-4"
+												: "text-stone-600 hover:text-stone-900"
+										}`}
+									>
+										<span>Mi Cocina</span>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											viewBox="0 0 20 20"
+											fill="currentColor"
+											className={`w-3.5 h-3.5 transition-transform duration-200 ${
+												dropdownOpen ? "rotate-180" : ""
+											}`}
+										>
+											<path
+												fillRule="evenodd"
+												d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z"
+												clipRule="evenodd"
+											/>
+										</svg>
+									</button>
 
-								<Link
-									href="/menu"
-									className={`font-serif italic text-xs transition-colors ${
-										pathname === "/menu"
-											? "text-stone-900 font-semibold underline underline-offset-4"
-											: "text-stone-600 hover:text-stone-900"
-									}`}
-								>
-									Menú Semanal
-								</Link>
+									{dropdownOpen && (
+										<div className="absolute left-0 mt-2 w-44 bg-white border border-stone-200/80 rounded-sm shadow-md py-1 z-50 animate-in fade-in duration-150">
+											{opcionesCocina.map((item) => (
+												<Link
+													key={item.href}
+													href={item.href}
+													onClick={() =>
+														setDropdownOpen(false)
+													}
+													className={`block px-4 py-2 font-serif text-xs transition-colors ${
+														pathname === item.href
+															? "bg-amber-50 text-amber-900 font-medium"
+															: "text-stone-700 hover:bg-[#faf8f5] hover:text-stone-900"
+													}`}
+												>
+													{item.name}
+												</Link>
+											))}
+										</div>
+									)}
+								</div>
 
-								<Link
-									href="/lista-compra"
-									className={`font-serif italic text-xs transition-colors ${
-										pathname === "/lista-compra"
-											? "text-stone-900 font-semibold underline underline-offset-4"
-											: "text-stone-600 hover:text-stone-900"
-									}`}
-								>
-									Lista de Compras
-								</Link>
-								<Link
-									href="/mis-recetas"
-									className={`font-serif italic text-xs transition-colors ${
-										pathname === "/mis-recetas"
-											? "text-stone-900 font-semibold underline underline-offset-4"
-											: "text-stone-600 hover:text-stone-900"
-									}`}
-								>
-									Mis Recetas
-								</Link>
-								<RecetaModal />
+								{/* Botón Compacto para Crear Receta */}
+								<div className="flex items-center">
+									<RecetaModal customButtonClass="text-xs font-serif italic text-amber-900 bg-amber-50 hover:bg-amber-100/80 border border-amber-800/30 px-3 py-1 rounded transition-all shadow-xs cursor-pointer flex items-center gap-1 active:scale-95" />
+								</div>
 
-								<div className="flex items-center gap-3 pl-4 border-l border-stone-300">
+								{/* Cerrar Sesión */}
+								<div className="flex items-center pl-2 border-l border-stone-300">
 									<button
 										onClick={handleSignOut}
 										className="text-xs font-serif text-stone-600 hover:text-stone-900 transition-colors cursor-pointer"
@@ -243,7 +279,7 @@ export default function Navbar() {
 					</div>
 				</div>
 
-				{/* NAVEGACIÓN MÓVIL DESPLEGABLE */}
+				{/* NAVEGACIÓN MÓVIL */}
 				{menuOpen && (
 					<div
 						className={`md:hidden absolute left-0 w-full bg-[#faf8f5] border-b border-stone-200 shadow-lg px-6 py-6 space-y-4 animate-in slide-in-from-top duration-200 ${
@@ -264,53 +300,20 @@ export default function Navbar() {
 									<span>✨</span> Chef IA
 								</Link>
 
-								<Link
-									href="/favoritos"
-									onClick={() => setMenuOpen(false)}
-									className={`font-serif italic text-sm transition-colors ${
-										pathname === "/favoritos"
-											? "text-stone-900 font-semibold underline underline-offset-4"
-											: "text-stone-600 hover:text-stone-900"
-									}`}
-								>
-									Favoritos
-								</Link>
-
-								<Link
-									href="/menu"
-									onClick={() => setMenuOpen(false)}
-									className={`font-serif italic text-sm transition-colors ${
-										pathname === "/menu"
-											? "text-stone-900 font-semibold underline underline-offset-4"
-											: "text-stone-600 hover:text-stone-900"
-									}`}
-								>
-									Menú Semanal
-								</Link>
-
-								<Link
-									href="/lista-compra"
-									onClick={() => setMenuOpen(false)}
-									className={`font-serif italic text-sm transition-colors ${
-										pathname === "/lista-compra"
-											? "text-stone-900 font-semibold underline underline-offset-4"
-											: "text-stone-600 hover:text-stone-900"
-									}`}
-								>
-									Lista de Compras
-								</Link>
-
-								<Link
-									href="/mis-recetas"
-									onClick={() => setMenuOpen(false)}
-									className={`font-serif italic text-sm transition-colors ${
-										pathname === "/mis-recetas"
-											? "text-stone-900 font-semibold underline underline-offset-4"
-											: "text-stone-600 hover:text-stone-900"
-									}`}
-								>
-									Mis Recetas
-								</Link>
+								{opcionesCocina.map((item) => (
+									<Link
+										key={item.href}
+										href={item.href}
+										onClick={() => setMenuOpen(false)}
+										className={`font-serif italic text-sm transition-colors ${
+											pathname === item.href
+												? "text-stone-900 font-semibold underline underline-offset-4"
+												: "text-stone-600 hover:text-stone-900"
+										}`}
+									>
+										{item.name}
+									</Link>
+								))}
 
 								<div className="pt-2 flex justify-start">
 									<RecetaModal />

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { toPng } from "html-to-image";
+import { useState, useRef } from "react";
 import RecetaModal, { RecetaIAData } from "@/components/RecetaModal";
+import BotonCompartirMenu from "@/components/BotonCompartirMenu";
 
 export default function ChefIAPage() {
 	const [ingredientesInput, setIngredientesInput] = useState("");
@@ -10,27 +10,9 @@ export default function ChefIAPage() {
 	const [recetaGenerada, setRecetaGenerada] = useState<RecetaIAData | null>(
 		null,
 	);
-	const [downloadingImg, setDownloadingImg] = useState(false);
-	const [menuShareOpen, setMenuShareOpen] = useState(false);
-	const [copiado, setCopiado] = useState(false);
+	const [errorModalOpen, setErrorModalOpen] = useState(false);
 
 	const recetaRef = useRef<HTMLDivElement>(null);
-	const menuRef = useRef<HTMLDivElement>(null);
-
-	// Cierra el menú al hacer clic fuera
-	useEffect(() => {
-		const handleClickOutside = (event: MouseEvent) => {
-			if (
-				menuRef.current &&
-				!menuRef.current.contains(event.target as Node)
-			) {
-				setMenuShareOpen(false);
-			}
-		};
-		document.addEventListener("mousedown", handleClickOutside);
-		return () =>
-			document.removeEventListener("mousedown", handleClickOutside);
-	}, []);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -46,132 +28,18 @@ export default function ChefIAPage() {
 				body: JSON.stringify({ prompt: ingredientesInput }),
 			});
 
-			if (!res.ok)
+			if (!res.ok) {
 				throw new Error("Error al obtener respuesta de la API");
+			}
 
 			const data = await res.json();
 			setRecetaGenerada(data);
 		} catch (err) {
 			console.error("Error al generar la receta:", err);
+			setErrorModalOpen(true);
 		} finally {
 			setLoading(false);
 		}
-	};
-
-	// 1. Descargar Imagen PNG (Incluye el pie de página con Branding)
-	const handleDescargarImagen = async () => {
-		if (!recetaRef.current) return;
-		setDownloadingImg(true);
-		setMenuShareOpen(false);
-
-		try {
-			const dataUrl = await toPng(recetaRef.current, {
-				cacheBust: true,
-				backgroundColor: "#ffffff",
-				filter: (node) => {
-					if (node instanceof HTMLElement) {
-						return !node.classList.contains("no-export");
-					}
-					return true;
-				},
-			});
-
-			const slugTitulo = recetaGenerada?.titulo
-				? recetaGenerada.titulo.toLowerCase().replace(/\s+/g, "-")
-				: "receta";
-
-			const link = document.createElement("a");
-			link.download = `${slugTitulo}.png`;
-			link.href = dataUrl;
-			link.click();
-		} catch (err) {
-			console.error("Error al exportar la imagen:", err);
-		} finally {
-			setDownloadingImg(false);
-		}
-	};
-
-	// 2. Descargar Archivo de Texto (.txt)
-	const handleDescargarTexto = () => {
-		if (!recetaGenerada) return;
-		setMenuShareOpen(false);
-
-		const tituloTxt = (recetaGenerada.titulo ?? "Receta").toUpperCase();
-		const ingredientesTxt = (recetaGenerada.ingredientes || [])
-			.map((ing) => `- ${ing.nombre}: ${ing.cantidad}`)
-			.join("\n");
-
-		const instruccionesTexto = (recetaGenerada.instrucciones || "")
-			.replace(/<li>/g, "- ")
-			.replace(/<\/li>/g, "\n")
-			.replace(/<[^>]+>/g, "");
-
-		const contenidoTxt = `RECETA: ${tituloTxt}
-Categoría: ${recetaGenerada.categoria ?? "General"}
-Tiempo: ${recetaGenerada.tiempoPreparacionInt ?? 0} min | Porciones: ${recetaGenerada.porciones ?? 1}
-
-DESCRIPCIÓN:
-${recetaGenerada.descripcion ?? ""}
-
-INGREDIENTES:
-${ingredientesTxt}
-
-INSTRUCCIONES DE PREPARACIÓN:
-${instruccionesTexto}
-
----
-Creado con Chef IA. Genera tus recetas en: ${window.location.origin}/generar
-`;
-
-		const blob = new Blob([contenidoTxt], {
-			type: "text/plain;charset=utf-8",
-		});
-		const url = URL.createObjectURL(blob);
-		const link = document.createElement("a");
-		const slugTitulo = recetaGenerada.titulo
-			? recetaGenerada.titulo.toLowerCase().replace(/\s+/g, "-")
-			: "receta";
-
-		link.href = url;
-		link.download = `${slugTitulo}.txt`;
-		link.click();
-		URL.revokeObjectURL(url);
-	};
-
-	// 3. Copiar para WhatsApp / Redes Sociales con Call to Action
-	// Copiar para WhatsApp / Redes Sociales (con Ingredientes e Instrucciones)
-	const handleCopiarTextoWA = () => {
-		if (!recetaGenerada) return;
-
-		const ingredientesTxt = (recetaGenerada.ingredientes || [])
-			.map((ing) => `• *${ing.nombre}:* ${ing.cantidad}`)
-			.join("\n");
-
-		// Convierte el HTML de las instrucciones a texto plano formateado con viñetas o números
-		const instruccionesTexto = (recetaGenerada.instrucciones || "")
-			.replace(/<li>/g, "• ")
-			.replace(/<\/li>/g, "\n")
-			.replace(/<[^>]+>/g, "")
-			.trim();
-
-		const textoCompartir = `🍳 *${recetaGenerada.titulo ?? "Receta"}*
-⏱️ *Tiempo:* ${recetaGenerada.tiempoPreparacionInt ?? 0} min | 🍽️ *Porciones:* ${recetaGenerada.porciones ?? 1}
-
-*Ingredientes:*
-${ingredientesTxt}
-
-*Preparación:*
-${instruccionesTexto}
-
-✨ _Receta creada con Chef IA. Genera tus propias ideas con lo que tienes en casa aquí:_
-${window.location.origin}/generar`;
-
-		navigator.clipboard.writeText(textoCompartir);
-		setCopiado(true);
-		setTimeout(() => {
-			setCopiado(false);
-			setMenuShareOpen(false);
-		}, 1500);
 	};
 
 	const ejemplosRapidos = [
@@ -270,72 +138,13 @@ ${window.location.origin}/generar`;
 									</h2>
 								</div>
 
-								{/* Botones de acción excluidos de la imagen con la clase no-export */}
+								{/* Botones de acción */}
 								<div className="flex items-center gap-2 no-export">
-									{/* Botón Compartir */}
-									<div className="relative" ref={menuRef}>
-										<button
-											type="button"
-											onClick={() =>
-												setMenuShareOpen(!menuShareOpen)
-											}
-											disabled={downloadingImg}
-											className="w-9 h-9 flex items-center justify-center rounded-full border border-stone-200 bg-white text-stone-500 hover:text-stone-800 hover:border-stone-300 transition-colors cursor-pointer shadow-sm"
-											title="Compartir o descargar receta"
-										>
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												viewBox="0 0 24 24"
-												fill="none"
-												stroke="currentColor"
-												strokeWidth="1.8"
-												className="w-4 h-4"
-											>
-												<path
-													strokeLinecap="round"
-													strokeLinejoin="round"
-													d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z"
-												/>
-											</svg>
-										</button>
+									<BotonCompartirMenu
+										receta={recetaGenerada}
+										targetRef={recetaRef}
+									/>
 
-										{/* Menú Desplegable Minimalista */}
-										{menuShareOpen && (
-											<div className="absolute right-0 mt-2 w-52 bg-white border border-stone-200/80 rounded-sm shadow-md z-10 py-1 text-xs font-sans text-stone-700">
-												<button
-													type="button"
-													onClick={
-														handleDescargarImagen
-													}
-													className="w-full text-left px-3.5 py-2 hover:bg-[#faf8f5] hover:text-stone-900 transition-colors cursor-pointer"
-												>
-													Guardar como Imagen (.png)
-												</button>
-												<button
-													type="button"
-													onClick={
-														handleDescargarTexto
-													}
-													className="w-full text-left px-3.5 py-2 hover:bg-[#faf8f5] hover:text-stone-900 transition-colors cursor-pointer border-t border-stone-100"
-												>
-													Descargar Texto (.txt)
-												</button>
-												<button
-													type="button"
-													onClick={
-														handleCopiarTextoWA
-													}
-													className="w-full text-left px-3.5 py-2 hover:bg-[#faf8f5] hover:text-stone-900 transition-colors cursor-pointer border-t border-stone-100 font-medium text-amber-900"
-												>
-													{copiado
-														? "¡Copiado al portapapeles!"
-														: "Copiar para WhatsApp / Redes"}
-												</button>
-											</div>
-										)}
-									</div>
-
-									{/* Botón Editar / Personalizar */}
 									<RecetaModal
 										key={recetaGenerada.titulo}
 										initialData={recetaGenerada}
@@ -420,7 +229,6 @@ ${window.location.origin}/generar`;
 								/>
 							</div>
 
-							{/* Pie de página con Branding (Se incluye en la captura de imagen) */}
 							<div className="pt-4 border-t border-stone-100 flex flex-wrap justify-between items-center text-[11px] text-stone-400 font-mono gap-2">
 								<span>✨ Creado con Chef IA</span>
 								<span>
@@ -429,6 +237,52 @@ ${window.location.origin}/generar`;
 										? window.location.host
 										: "tuweb.com"}
 								</span>
+							</div>
+						</div>
+					</div>
+				)}
+
+				{/* Modal de Error */}
+				{errorModalOpen && (
+					<div className="fixed inset-0 bg-stone-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+						<div className="bg-white border border-stone-200 p-6 sm:p-8 max-w-md w-full shadow-lg space-y-5 rounded-sm">
+							<div className="flex items-center gap-3 border-b border-stone-100 pb-3">
+								<div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-800 shrink-0">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 24 24"
+										strokeWidth="2"
+										stroke="currentColor"
+										className="w-4 h-4"
+									>
+										<path
+											strokeLinecap="round"
+											strokeLinejoin="round"
+											d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+										/>
+									</svg>
+								</div>
+								<h3 className="font-serif text-lg text-stone-900">
+									Ocurrió un problema
+								</h3>
+							</div>
+
+							<p className="text-xs sm:text-sm text-stone-600 leading-relaxed font-sans">
+								No pudimos conectar con el Chef IA en este
+								momento. Por favor, intenta enviar tu petición
+								nuevamente. Si el problema persiste, intenta más
+								tarde.
+							</p>
+
+							<div className="flex justify-end gap-2 pt-2 border-t border-stone-100">
+								<button
+									type="button"
+									onClick={() => setErrorModalOpen(false)}
+									className="px-4 py-2 bg-stone-900 hover:bg-stone-800 text-white text-xs font-serif italic transition-colors cursor-pointer"
+								>
+									Entendido
+								</button>
 							</div>
 						</div>
 					</div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { createPortal } from "react-dom";
 import { createReceta, updateReceta } from "@/app/actions/recetas";
 import { RecetaConIngredientes, IngredienteInput } from "@/types/receta";
@@ -21,12 +21,14 @@ interface Props {
 	readonly receta?: RecetaConIngredientes; // Modo edición tradicional
 	readonly initialData?: RecetaIAData; // Datos precargados desde Chef IA
 	readonly triggerButton?: React.ReactNode; // Botón personalizado opcional
+	readonly customButtonClass?: string; // Clase personalizada opcional para el botón por defecto
 }
 
 export default function RecetaModal({
 	receta,
 	initialData,
 	triggerButton,
+	customButtonClass,
 }: Props) {
 	const isEditing = Boolean(receta);
 	const [isOpen, setIsOpen] = useState(false);
@@ -132,7 +134,10 @@ export default function RecetaModal({
 				<button
 					type="button"
 					onClick={() => setIsOpen(true)}
-					className="font-serif italic text-sm text-amber-800 border border-amber-800/30 px-5 py-2 hover:bg-amber-800 hover:text-white transition-all duration-200 cursor-pointer"
+					className={
+						customButtonClass ??
+						"font-serif italic text-sm text-amber-800 border border-amber-800/30 px-5 py-2 hover:bg-amber-800 hover:text-white transition-all duration-200 cursor-pointer"
+					}
 				>
 					+ Nueva Receta
 				</button>
