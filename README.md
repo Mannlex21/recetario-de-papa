@@ -3,6 +3,14 @@
 > **El Recetario de Papá** es una aplicación web moderna orientada a la organización del hogar y la gestión gastronómica personal. Diseñada para ofrecer una experiencia fluida e intuitiva, permite administrar recetas familiares, planificar menús semanales, organizar listas de compras, guardar platillos favoritos y **generar recetas inteligentes mediante IA** a partir de los ingredientes disponibles en la cocina.
 
 ---
+## 🌐 Demo en Línea
+
+Puedes probar la aplicación directamente desde la siguiente dirección:
+
+👉 **[Recetario — Demo](https://recetario-de-papa.vercel.app/generar)**
+
+> 🚀 Aplicación desplegada y disponible en línea para demostración.
+---
 
 ## 🚀 Tecnologías Utilizadas
 
