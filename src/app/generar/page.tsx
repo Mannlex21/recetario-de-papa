@@ -15,6 +15,9 @@ export default function ChefIAPage() {
 	const [limiteAlcanzado, setLimiteAlcanzado] = useState(false);
 	const recetaRef = useRef<HTMLDivElement>(null);
 
+	const MAX_CARACTERES = 500;
+	const caracteresRestantes = MAX_CARACTERES - ingredientesInput.length;
+
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!ingredientesInput.trim() || loading || limiteAlcanzado) return;
@@ -112,14 +115,30 @@ export default function ChefIAPage() {
 						¿Qué ingredientes tienes en tu cocina?
 					</label>
 
-					<textarea
-						id="ingredientes"
-						rows={3}
-						value={ingredientesInput}
-						onChange={(e) => setIngredientesInput(e.target.value)}
-						placeholder="Ejemplo: Tengo 2 jitomates, media cebolla, 3 huevos y unas tortillas de ayer..."
-						className="w-full p-3 bg-[#faf8f5] border border-stone-300 text-stone-900 font-sans text-sm focus:outline-none focus:border-amber-800 focus:ring-1 focus:ring-amber-800 transition-all resize-none"
-					/>
+					<div>
+						<textarea
+							id="ingredientes"
+							rows={3}
+							maxLength={MAX_CARACTERES}
+							value={ingredientesInput}
+							onChange={(e) =>
+								setIngredientesInput(e.target.value)
+							}
+							placeholder="Ejemplo: Tengo 2 jitomates, media cebolla, 3 huevos y unas tortillas de ayer..."
+							className="w-full p-3 bg-[#faf8f5] border border-stone-300 text-stone-900 font-sans text-sm focus:outline-none focus:border-amber-800 focus:ring-1 focus:ring-amber-800 transition-all resize-none"
+						/>
+						<div className="flex justify-end">
+							<span
+								className={`text-[11px] font-mono transition-colors ${
+									caracteresRestantes <= 50
+										? "text-amber-700 font-semibold"
+										: "text-stone-400"
+								}`}
+							>
+								{caracteresRestantes} caracteres restantes
+							</span>
+						</div>
+					</div>
 
 					<div className="space-y-2">
 						<span className="text-[11px] font-serif italic text-stone-500 block">
